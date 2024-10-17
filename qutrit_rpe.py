@@ -32,10 +32,10 @@ def modelX01(theta, gamma):
     return expm(-(1j/2)*((np.pi/2 + theta)*X01_gen + gamma*Gamma_01))
 
 def modelZ01():
-    return np.diag([np.exp(-1j*np.pi/4), 1, 1])
+    return np.diag([np.exp(1j*np.pi/2), 1, 1])
 
 def modelZ12():
-    return  np.diag([1, 1, np.exp(-1j*np.pi/4)])
+    return  np.diag([1, 1, np.exp(-1j*np.pi/2)])
 
 def modelX12(theta, gamma):
     return expm(-(1j/2)*((np.pi/2 + theta)*X12_gen + gamma*Gamma_12))
@@ -192,3 +192,7 @@ def make_two_qutrit_model(error_vector, single_qutrit_depol=0., two_qutrit_depol
     model.operations[('Gz12', qids[1])].depolarize(single_qutrit_depol)
     model.operations[('Gcz', qids[0], qids[1])].depolarize(two_qutrit_depol)
     return model
+
+
+    # ==================================================================================================
+    # Circuit Construction 
