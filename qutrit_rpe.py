@@ -5,6 +5,9 @@ from pygsti.circuits import Circuit
 from matplotlib import pyplot as plt
 from pygsti.processors import QuditProcessorSpec
 
+from quapack.pyRPE import RobustPhaseEstimation
+from quapack.pyRPE.quantum import Q as _rpeQ
+
 # Gell-Mann matrices
 gellmann_matrices = [
     np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
@@ -195,4 +198,272 @@ def make_two_qutrit_model(error_vector, single_qutrit_depol=0., two_qutrit_depol
 
 
     # ==================================================================================================
-    # Circuit Construction 
+    # Circuit Definition
+
+from numpy.linalg import matrix_power
+
+def gX01(qid):
+    return [(f'Gx01', qid)]
+
+def gY01(qid):
+    return [(f'Gz01', qid)] + [(f'Gx01', qid)] + [(f'Gz01', qid)]*3
+
+def gX12(qid):
+    return [(f'Gx12', qid)]
+
+def gY12(qid):
+    return [(f'Gz12', qid)] + [(f'Gx12', qid)] + [(f'Gz12', qid)]*3
+
+def gZ01(qid):
+    return [(f'Gz01', qid)]
+
+def gZ12(qid):
+    return [(f'Gz12', qid)]
+
+def gX01_inv(qid):
+    return [(f'Gx01', qid)]*3 + [(f'Gz12', qid)]*2
+
+def gX01pi_inv(qid):
+    return [(f'Gx01', qid)]*2 + [(f'Gz12', qid)]*2
+
+def gX12_inv(qid):
+    return [(f'Gx12', qid)]*3 + [(f'Gz01', qid)]*2
+
+def gX12pi_inv(qid):
+    return [(f'Gx12', qid)]*2 + [(f'Gz01', qid)]*2
+
+def gY01_inv(qid):
+    return gY01(qid)*3 + [(f'Gz12', qid)]*2
+
+def gY12_inv(qid):
+    return gY12(qid)*3 + [(f'Gz01', qid)]*2
+
+def gY01pi_inv(qid):
+    return gY01(qid)*2 + [(f'Gz12', qid)]*2
+
+def check_inverse_defs():
+    """
+    Check the inverse definitions are correct
+    """
+    ux01 = modelX01(0,0)
+    uz01 = modelZ01()
+    ux12 = modelX12(0,0)
+    uz12 = modelZ12()
+    uy01 = matrix_power(uz01, 3)@ux01@uz01
+    uy12 = matrix_power(uz12, 3)@ux12@uz12
+
+    print(np.all(np.isclose(ux01@(ux01@ux01@ux01@uz12@uz12), -np.eye(3))))
+    print(np.all(np.isclose(ux12@(ux12@ux12@ux12@uz01@uz01), -np.eye(3))))
+    print(np.all(np.isclose(uy01@(uy01@uy01@uy01@uz12@uz12), -np.eye(3))))
+    print(np.all(np.isclose(uy12@(uy12@uy12@uy12@uz01@uz01), -np.eye(3))))
+    print(np.all(np.isclose(ux01@ux01@(ux01@ux01@uz12@uz12), -np.eye(3))))
+    print(np.all(np.isclose(ux12@ux12@(ux12@ux12@uz01@uz01), -np.eye(3))))
+
+
+def make_rpe_circuit(germ, prep, meas, depth, line_labels):
+    prep_circ = Circuit(prep, line_labels=line_labels)
+    germ_circ = Circuit(germ, line_labels=line_labels)
+    meas_circ = Circuit(meas, line_labels=line_labels)
+    return prep_circ + germ_circ * depth + meas_circ
+
+class RPEDesign1QT:
+    def __init__(self, depths, qid, line_labels=None):
+        self.depths = depths
+        self.qid = qid
+        if line_labels is None:
+            line_labels = [qid]
+        self.line_labels = line_labels
+        self.circuit_dict = self._construct()
+        self.circ_list = self._make_circuit_list()
+
+
+    def _make_circuit_list(self):
+        circs = []
+        for param_label in self.circuit_dict.keys():
+            for type_label in self.circuit_dict[param_label].keys():
+                circs.extend(self.circuit_dict[param_label][type_label])
+        return pygsti.remove_duplicates(circs)    
+
+    def _construct(self):
+        circ_dict = {
+            'Phase01': {},
+            'Phase12': {},
+            'X01 overrot': {},
+            'X12 overrot': {}
+        }
+        circ_dict['X01 overrot']['I'] = self.make_x01_overrot_cos_circuits(self.depths, self.qid, self.line_labels)
+        circ_dict['X01 overrot']['Q'] = self.make_x01_overrot_sin_circuits(self.depths, self.qid, self.line_labels)
+        circ_dict['X12 overrot']['I'] = self.make_x12_overrot_cos_circuits(self.depths, self.qid, self.line_labels)
+        circ_dict['X12 overrot']['Q'] = self.make_x12_overrot_sin_circuits(self.depths, self.qid, self.line_labels)
+        circ_dict['Phase01']['I'] = self.make_phase01_cos_circuits(self.depths, self.qid, self.line_labels)
+        circ_dict['Phase01']['Q'] = self.make_phase01_sin_circuits(self.depths, self.qid, self.line_labels)
+        circ_dict['Phase12']['I'] = self.make_phase12_cos_circuits(self.depths, self.qid, self.line_labels)
+        circ_dict['Phase12']['Q'] = self.make_phase12_sin_circuits(self.depths, self.qid, self.line_labels)
+        return circ_dict
+
+    def make_x01_overrot_cos_circuits(self, depths, qid, line_labels):
+        return [make_rpe_circuit(gX01(qid), [], [], depth, line_labels) for depth in depths]
+    
+    def make_x01_overrot_sin_circuits(self, depths, qid, line_labels):
+        return [make_rpe_circuit(gX01(qid), gX01(qid), [], depth, line_labels) for depth in depths]
+    
+    def make_x12_overrot_cos_circuits(self, depths, qid, line_labels):
+        prep = gX01(qid)+gX01(qid)
+        return [make_rpe_circuit(gX12(qid), prep, [], depth, line_labels) for depth in depths]
+    
+    def make_x12_overrot_sin_circuits(self, depths, qid, line_labels):
+        prep = gX01(qid)+gX01(qid) + gX12(qid)
+        return [make_rpe_circuit(gX12(qid), prep, [], depth, line_labels) for depth in depths]
+    
+    def make_phase01_cos_circuits(self, depths, qid, line_labels):
+        germ = gX01(qid) + gZ01(qid)*2 + gX01(qid) + gZ01(qid)*2
+        prep = gX01(qid) + gX01(qid) + gY12(qid)
+        meas = gY12_inv(qid) + gX01pi_inv(qid)
+        # prep = gX01(qid) + gX01(qid) + gY12(qid) + gX01(qid) + gZ01(qid)
+        # meas = gZ01(qid)*3 + gX01_inv(qid) + gY12_inv(qid) + gX01pi_inv(qid)
+        # prep = gX01(qid) + gX01(qid) + gY12(qid)
+        # meas = gY12_inv(qid) + gX01pi_inv(qid)
+        return [make_rpe_circuit(germ, prep, meas, depth, line_labels) for depth in depths]
+
+    def make_phase01_sin_circuits(self, depths, qid, line_labels):
+        germ = gX01(qid) + gZ01(qid)*2 + gX01(qid) + gZ01(qid)*2
+        prep = gX01(qid) + gX01(qid) + gX12(qid)
+        meas = gY12_inv(qid) + gX01pi_inv(qid)
+        # prep = gX01(qid) + gX01(qid) + gY12(qid) + gX01(qid)
+        # meas = gY12_inv(qid) + gX01pi_inv(qid)
+        return [make_rpe_circuit(germ, prep, meas, depth, line_labels) for depth in depths]
+        
+    
+    def make_phase12_cos_circuits(self, depths, qid, line_labels):
+        germ = gX12(qid) + gZ12(qid)*2 + gX12(qid) + gZ12(qid)*2
+        prep = gY01(qid) 
+        meas = gY01_inv(qid) 
+        return [make_rpe_circuit(germ, prep, meas, depth, line_labels) for depth in depths]
+    
+    def make_phase12_sin_circuits(self, depths, qid, line_labels):
+        germ = gX12(qid) + gZ12(qid)*2 + gX12(qid) + gZ12(qid)*2
+        prep = gX01_inv(qid) 
+        meas = gY01_inv(qid) 
+        return [make_rpe_circuit(germ, prep, meas, depth, line_labels) for depth in depths]
+    
+    def save_circuits(self, filename=None):
+        if filename is None:
+            filename = f'rpe_design_1qt_{self.qid}.txt'
+        pygsti.io.write_circuit_list(filename, self.circ_list)
+
+
+# ==================================================================================================
+# Estimation and display
+
+def rectify_angle(angle):
+    # return in range [-pi, pi]
+    return (angle + np.pi) % (2*np.pi) - np.pi
+
+def plot_outcome_dist_2qt(outcomes, target=None, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots()
+    # keys a
+    keys = ['00', '01', '02', '10', '11', '12', '20', '21', '22']
+    vals = np.zeros(9)
+    if target is not None:
+        tag_vals = np.zeros(9)
+        for idx, key in enumerate(keys):
+            if key in target:
+                tag_vals[idx] = target[key]
+    for idx, key in enumerate(keys):
+        if key in outcomes:
+            vals[idx] = outcomes[key]
+    if target is None:
+        ax.bar(keys, vals)
+    else:
+        ax.bar(keys, vals, label='Simulated', alpha=0.5)
+        ax.bar(keys, tag_vals, label='Target', alpha=0.5)
+        ax.legend()
+
+
+def estimate_phase_from_counts(cos_plus_counts, cos_minus_counts, sin_plus_counts, sin_minus_counts, depths):
+    experiment = _rpeQ()
+    for idx, d in enumerate(depths):
+        if d == 0:
+            continue
+        experiment.process_cos(d, (int(cos_plus_counts[idx]), int(cos_minus_counts[idx])))
+        experiment.process_sin(d, (int(sin_plus_counts[idx]), int(sin_minus_counts[idx])))
+    analysis = RobustPhaseEstimation(experiment)
+    last_good_generation = analysis.check_unif_local(historical=True)
+    estimates = analysis.angle_estimates
+    return estimates, last_good_generation
+
+class RPEEstimator1QT:
+    def __init__(self, dataset, edesign, germ_quadrature_labels):
+        self.edesign = edesign
+        self.germ_quadrature_labels = germ_quadrature_labels
+        self.dataset = dataset
+        self.rpe_outcome_dict = self._construct_rpe_outcome_dict()
+        self.raw_trig_estimates, self.trig_last_good_gens = self._estimate_trig_params()
+
+    @property
+    def param_estimates(self):
+        return{
+            'Phase01': self.raw_trig_estimates['Phase01'][self.trig_last_good_gens['Phase01']]/3,
+            'Phase12': self.raw_trig_estimates['Phase12'][self.trig_last_good_gens['Phase12']]/3,
+            'X01 overrot': -rectify_angle(self.raw_trig_estimates['X01 overrot'][self.trig_last_good_gens['X01 overrot']]) - np.pi/2,
+            'X12 overrot': -rectify_angle(self.raw_trig_estimates['X12 overrot'][self.trig_last_good_gens['X12 overrot']]) - np.pi/2,
+        }
+    def _construct_rpe_outcome_dict(self):
+        rpe_count_dict = {}
+        for param_label in self.edesign.circuit_dict.keys():
+            rpe_count_dict[param_label] = {}
+            for type_label in self.edesign.circuit_dict[param_label].keys():
+                rpe_count_dict[param_label][type_label] = []
+                for depth_idx, circ in enumerate(self.edesign.circuit_dict[param_label][type_label]):
+                    counts = self.dataset[circ].counts
+                    plus_count_labels = self.germ_quadrature_labels[param_label]['+']
+                    minus_count_labels = self.germ_quadrature_labels[param_label]['-']
+                    plus_counts = sum([counts[label] for label in plus_count_labels])
+                    minus_counts = sum([counts[label] for label in minus_count_labels])
+                    rpe_count_dict[param_label][type_label].append((plus_counts, minus_counts))
+        return rpe_count_dict
+    
+    def _estimate_trig_params(self):
+        trig_estimates = {}
+        lggs = {}
+        for param_label in self.rpe_outcome_dict.keys():
+            cos_counts = self.rpe_outcome_dict[param_label]['I']
+            sin_counts = self.rpe_outcome_dict[param_label]['Q']
+            cos_plus_counts = [c[0] for c in cos_counts]
+            cos_minus_counts = [c[1] for c in cos_counts]
+            sin_plus_counts = [c[0] for c in sin_counts]
+            sin_minus_counts = [c[1] for c in sin_counts]
+            try:
+                estimates, last_good_generation = estimate_phase_from_counts(cos_plus_counts, cos_minus_counts, sin_plus_counts, sin_minus_counts, self.edesign.depths)
+                trig_estimates[param_label] = estimates
+                lggs[param_label] = last_good_generation
+            except:
+                print(f'Failed to estimate for {param_label}')
+        return trig_estimates, lggs
+            
+
+    def plot_all_outcomes(self, target_ds=None):
+        for param_label in self.rpe_outcome_dict.keys():
+            fig, axs = plt.subplots(2, len(self.edesign.depths), sharey=True, figsize=(3*len(self.edesign.depths), 6))
+            for idx, type_label in enumerate(self.rpe_outcome_dict[param_label].keys()):
+                for depth_idx, circ in enumerate(self.edesign.circuit_dict[param_label][type_label]):
+                    ax = axs[idx][depth_idx]
+                    outcomes = self.dataset[circ].counts
+                    if target_ds is not None:
+                        target = target_ds[circ].counts
+                        plot_outcome_dist_2qt(outcomes, target=target, ax=ax)
+                    else: 
+                        plot_outcome_dist_2qt(outcomes, ax=ax)
+                    ax.set_title(f'{type_label} at {self.edesign.depths[depth_idx]}')
+            plt.suptitle(param_label)
+            plt.tight_layout()
+            plt.show()
+            plt.figure()
+                
+
+    def extract_signals(self, dataset):
+        pass
+
+
+        
