@@ -351,6 +351,181 @@ class RPEDesign1QT:
             filename = f'rpe_design_1qt_{self.qid}.txt'
         pygsti.io.write_circuit_list(filename, self.circ_list)
 
+class RPEDesign2QT:
+    def __init__(self, depths, qids):
+        self.depths = depths
+        self.qids = qids
+        self.circuit_dict = self._construct()
+        self.circ_list = self._make_circuit_list()
+
+    def _make_circuit_list(self):
+        circs = []
+        for param_label in self.circuit_dict.keys():
+            for type_label in self.circuit_dict[param_label].keys():
+                circs.extend(self.circuit_dict[param_label][type_label])
+        return pygsti.remove_duplicates(circs)    
+
+    def _construct(self):
+        circ_dict = {
+            'theta1': {},
+            'theta2': {},
+            'theta3': {},
+            'theta4': {},
+            'theta5': {},
+            'theta6': {},
+            'theta7': {},
+            'theta8': {},
+        }
+        circ_dict['theta1']['I'] = self.make_theta1_cos_circuits()
+        circ_dict['theta1']['Q'] = self.make_theta1_sin_circuits()
+        circ_dict['theta2']['I'] = self.make_theta2_cos_circuits()
+        circ_dict['theta2']['Q'] = self.make_theta2_sin_circuits()
+        circ_dict['theta3']['I'] = self.make_theta3_cos_circuits()
+        circ_dict['theta3']['Q'] = self.make_theta3_sin_circuits()
+        circ_dict['theta4']['I'] = self.make_theta4_cos_circuits()
+        circ_dict['theta4']['Q'] = self.make_theta4_sin_circuits()
+        circ_dict['theta5']['I'] = self.make_theta5_cos_circuits()
+        circ_dict['theta5']['Q'] = self.make_theta5_sin_circuits()
+        circ_dict['theta6']['I'] = self.make_theta6_cos_circuits()
+        circ_dict['theta6']['Q'] = self.make_theta6_sin_circuits()
+        circ_dict['theta7']['I'] = self.make_theta7_cos_circuits()
+        circ_dict['theta7']['Q'] = self.make_theta7_sin_circuits()
+        circ_dict['theta8']['I'] = self.make_theta8_cos_circuits()
+        circ_dict['theta8']['Q'] = self.make_theta8_sin_circuits()
+        return circ_dict
+
+    def make_theta1_cos_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gY01(qid1)
+        meas = gY01_inv(qid1)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+    
+    def make_theta1_sin_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid1)
+        meas = gY01_inv(qid1)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+    
+    def make_theta2_cos_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid1)*2 + gY12(qid1)
+        meas = gY12_inv(qid1) + gX01pi_inv(qid1)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+    
+    def make_theta2_sin_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid1)*2 + gX12(qid1)
+        meas = gY12_inv(qid1) + gX01pi_inv(qid1)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def make_theta3_cos_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gY01(qid1) + gX01(qid0)*2
+        meas = gY01_inv(qid1) + gX01pi_inv(qid0)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def make_theta3_sin_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid1) + gX01(qid0)*2
+        meas = gY01_inv(qid1) + gX01pi_inv(qid0)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def make_theta4_cos_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid1)*2 + gY12(qid1) + gX01(qid0)*2
+        meas = gY12_inv(qid1) + gX01pi_inv(qid1) + gX01pi_inv(qid0)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def make_theta4_sin_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid1)*2 + gX12(qid1) + gX01(qid0)*2
+        meas = gY12_inv(qid1) + gX01pi_inv(qid1) + gX01pi_inv(qid0)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def make_theta5_cos_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid0)*2 + gX12(qid0)*2 + gY01(qid1)
+        meas = gY01_inv(qid1) + gX12pi_inv(qid0) + gX01pi_inv(qid0)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def make_theta5_sin_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid0)*2 + gX12(qid0)*2 + gX01(qid1) 
+        meas = gY01_inv(qid1) + gX12pi_inv(qid0) + gX01pi_inv(qid0) 
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def make_theta6_cos_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid1)*2 + gY12(qid1) + gX01(qid0)*2 + gX12(qid0)*2
+        meas = gY12_inv(qid1) + gX01pi_inv(qid1) + gX12pi_inv(qid0) + gX01pi_inv(qid0)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def make_theta6_sin_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid1)*2 + gX12(qid1) + gX01(qid0)*2 + gX12(qid0)*2
+        meas = gY12_inv(qid1) + gX01pi_inv(qid1) + gX12pi_inv(qid0) + gX01pi_inv(qid0)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def make_theta7_cos_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gY01(qid0) + gX01(qid1)*2 
+        meas = gY01_inv(qid0) + gX01pi_inv(qid1)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def make_theta7_sin_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid0) + gX01(qid1)*2 
+        meas = gY01_inv(qid0) + gX01pi_inv(qid1)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def make_theta8_cos_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid0)*2 + gY12(qid0) + gX01(qid1)*2 
+        meas = gY12_inv(qid0) + gX01pi_inv(qid1) + gX01pi_inv(qid0)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def make_theta8_sin_circuits(self):
+        line_labels = self.qids
+        qid0 = self.qids[0]
+        qid1 = self.qids[1]
+        prep = gX01(qid0)*2 + gX12(qid0) + gX01(qid1)*2 
+        meas = gY12_inv(qid0) + gX01pi_inv(qid1) + gX01pi_inv(qid0)
+        return [make_rpe_circuit([('Gcz', qid0, qid1)], prep, meas, d, line_labels) for d in self.depths]
+
+    def save_circuits(self, filename=None):
+        if filename is None:
+            filename = f'rpe_design_1qt_{self.qid}.txt'
+        pygsti.io.write_circuit_list(filename, self.circ_list)
 
 # ==================================================================================================
 # Estimation and display
@@ -393,22 +568,19 @@ def estimate_phase_from_counts(cos_plus_counts, cos_minus_counts, sin_plus_count
     estimates = analysis.angle_estimates
     return estimates, last_good_generation
 
-class RPEEstimator1QT:
+class RPEEstimatorBase:
     def __init__(self, dataset, edesign, germ_quadrature_labels):
         self.edesign = edesign
-        self.germ_quadrature_labels = germ_quadrature_labels
         self.dataset = dataset
+        self.germ_quadrature_labels = germ_quadrature_labels
         self.rpe_outcome_dict = self._construct_rpe_outcome_dict()
         self.raw_trig_estimates, self.trig_last_good_gens = self._estimate_trig_params()
+        self.signals = self.extract_signals(dataset)
 
     @property
     def param_estimates(self):
-        return{
-            'Phase01': self.raw_trig_estimates['Phase01'][self.trig_last_good_gens['Phase01']]/3,
-            'Phase12': self.raw_trig_estimates['Phase12'][self.trig_last_good_gens['Phase12']]/3,
-            'X01 overrot': -rectify_angle(self.raw_trig_estimates['X01 overrot'][self.trig_last_good_gens['X01 overrot']]) - np.pi/2,
-            'X12 overrot': -rectify_angle(self.raw_trig_estimates['X12 overrot'][self.trig_last_good_gens['X12 overrot']]) - np.pi/2,
-        }
+        raise NotImplementedError
+    
     def _construct_rpe_outcome_dict(self):
         rpe_count_dict = {}
         for param_label in self.edesign.circuit_dict.keys():
@@ -440,6 +612,8 @@ class RPEEstimator1QT:
                 lggs[param_label] = last_good_generation
             except:
                 print(f'Failed to estimate for {param_label}')
+                trig_estimates[param_label] = np.zeros(len(self.edesign.depths))
+                lggs[param_label] = np.zeros(len(self.edesign.depths))
         return trig_estimates, lggs
             
 
@@ -463,7 +637,115 @@ class RPEEstimator1QT:
                 
 
     def extract_signals(self, dataset):
-        pass
+        signals = {}
+        for param_label in self.rpe_outcome_dict.keys():
+            signals[param_label] = []
+            inphase_counts = self.rpe_outcome_dict[param_label]['I']
+            quadrature_counts = self.rpe_outcome_dict[param_label]['Q']
+            for idx, d in enumerate(self.edesign.depths):
+                inphase_plus = inphase_counts[idx][0]
+                inphase_minus = inphase_counts[idx][1]
+                quadrature_plus = quadrature_counts[idx][0]
+                quadrature_minus = quadrature_counts[idx][1]
+                try:
+                    s_real = 1 - 2 * inphase_plus/(inphase_plus + inphase_minus)
+                    s_imag = 1 - 2 * quadrature_plus/(quadrature_plus + quadrature_minus)
+                except:
+                    s_real = 0
+                    s_imag = 0
+                signals[param_label].append(s_real + 1j*s_imag)
+        return signals
+    
+    def plot_signal_on_circle(self, signal, ax=None, title=None):
+        if ax is None:
+            fig, ax = plt.subplots(1, figsize=(12, 6))
+        # plot the signals on the complex plane with a colormap for the depth
+        depths = self.edesign.depths
+        for idx, d in enumerate(depths):
+            ax.scatter(signal[idx].real, signal[idx].imag, color=plt.cm.viridis(idx/len(depths)))
+        ax.set_title(title)
+        ax.set_xlabel('Re')
+        ax.set_ylabel('Im')
+        ax.set_aspect('equal')
+        ax.grid()
+        # add colorbar 
+        sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=plt.Normalize(vmin=0, vmax=len(depths)))
+        sm.set_array([])
+        plt.colorbar(sm, ax=ax, label='Depth index')
+        # draw the unit circle
+        circle = plt.Circle((0, 0), 1, fill=False, color='black')
+        ax.add_artist(circle)
+        # set the axis limits
+        ax.set_xlim(-1.1, 1.1)
+        ax.set_ylim(-1.1, 1.1)
 
-
+    def plot_all_signals(self):
+        for param_label in self.signals.keys():
+            fig, ax = plt.subplots(1, figsize=(12, 6))
+            self.plot_signal_on_circle(self.signals[param_label], ax=ax, title=param_label)
+            plt.show()
         
+class RPEEstimator1QT(RPEEstimatorBase):
+    def __init__(self, dataset, edesign, germ_quadrature_labels):
+        super().__init__(dataset, edesign, germ_quadrature_labels)
+
+
+    @property
+    def param_estimates(self):
+        return{
+            'Phase01': rectify_angle(self.raw_trig_estimates['Phase01'][self.trig_last_good_gens['Phase01']])/3,
+            'Phase12': rectify_angle(self.raw_trig_estimates['Phase12'][self.trig_last_good_gens['Phase12']])/3,
+            'X01 overrot': -rectify_angle(self.raw_trig_estimates['X01 overrot'][self.trig_last_good_gens['X01 overrot']]) - np.pi/2,
+            'X12 overrot': -rectify_angle(self.raw_trig_estimates['X12 overrot'][self.trig_last_good_gens['X12 overrot']]) - np.pi/2,
+        }
+
+
+def unwrap_phase_pair(estimate, reference):
+    """
+    Unwrap a phase estimate to a reference phase
+    """
+    # ensure the reference is in the range (-pi, pi]
+    reference = rectify_angle(reference)
+
+    unwrapped_phase = (estimate - reference) % (2*np.pi) + reference
+
+    if unwrapped_phase - reference > np.pi:
+        unwrapped_phase -= 2*np.pi
+    elif unwrapped_phase - reference <= -np.pi:
+        unwrapped_phase += 2*np.pi
+    return unwrapped_phase
+
+class RPEEstimator2QT(RPEEstimatorBase):
+    def __init__(self, dataset, edesign, germ_quadrature_labels):
+        super().__init__(dataset, edesign, germ_quadrature_labels)
+
+    @property
+    def raw_estimates(self):
+        return np.array([
+            self.raw_trig_estimates['theta1'][self.trig_last_good_gens['theta1']],
+            self.raw_trig_estimates['theta2'][self.trig_last_good_gens['theta2']],
+            self.raw_trig_estimates['theta3'][self.trig_last_good_gens['theta3']],
+            self.raw_trig_estimates['theta4'][self.trig_last_good_gens['theta4']],
+            self.raw_trig_estimates['theta5'][self.trig_last_good_gens['theta5']],
+            self.raw_trig_estimates['theta6'][self.trig_last_good_gens['theta6']],
+            self.raw_trig_estimates['theta7'][self.trig_last_good_gens['theta7']],
+            self.raw_trig_estimates['theta8'][self.trig_last_good_gens['theta8']]
+        ])
+
+    @property
+    def param_estimates(self):
+        eigvals_from_raw = np.array([
+            [1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0, 0, 0],
+            [0, 0, -1, 1, 0, 0, 0, 0],
+            [0, 0, -1, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 0, -1, 1, 0],
+            [0, 0, 0, 0, 0, -1, 0, 1],
+            [-1, 0, 0, 1, 0, 0, 0, 0],
+            [-1, 0, 0, 0, 0, 0, 1, 0]
+        ])
+        raw_estimates = self.raw_estimates
+        eigvals = np.linalg.inv(eigvals_from_raw) @ raw_estimates
+        return eigvals
+
+
